@@ -19,10 +19,17 @@ typedef struct Player {
 } Player;
 
 typedef struct {
+    int size;
     Player* Head;   
     Player* Tail; 
-    int size;
+    
 } Queue;
+
+typedef struct {
+    int size;
+    Player* head;
+    
+} List;
 
 
 
