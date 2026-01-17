@@ -4,6 +4,7 @@
 #include <time.h>
 
 /* Player and Queue structures */
+
 typedef struct Player {
     int id;
     char name[30];
@@ -14,7 +15,7 @@ typedef struct Player {
     int consecutiveWins;
     int consecutiveLosses;
 
-    int inFinalList;      /* 0 = playing, 1 = in LG or LP */
+    int inFinalList;      /* 0 = playing, 1 = in LG or LP , to avoid repetition */
 
     struct Player* next;
 } Player;
@@ -29,6 +30,7 @@ Player* LG = NULL;   /* winners list (descending by score) */
 Player* LP = NULL;   /* losers list */
 
 /* Queue operations */
+
 void initQueue(Queue* q) {
     q->head = NULL;
     q->tail = NULL;
@@ -36,9 +38,9 @@ void initQueue(Queue* q) {
 }
 
 void enqueue(Queue* q, Player* p) {
-    if (!p) return;
+    if (p == NULL) return;
     p->next = NULL;
-    if (!q->tail) {
+    if (q->tail == NULL) {
         q->head = p;
         q->tail = p;
     } else {
@@ -49,25 +51,30 @@ void enqueue(Queue* q, Player* p) {
 }
 
 Player* dequeue(Queue* q) {
-    if (!q->head) return NULL;
+    if (q->head == NULL) return NULL;
+
     Player* p = q->head;
     q->head = q->head->next;
-    if (!q->head) q->tail = NULL;
+
+    if (q->head == NULL)
+        q->tail = NULL;
+
     p->next = NULL;
     q->size--;
     return p;
 }
 
 /* List operations */
+
 void insertLP(Player* p) {
-    if (!p || p->inFinalList) return;
+    if (p == NULL || p->inFinalList == 1) return;
     p->inFinalList = 1;
     p->next = LP;
     LP = p;
 }
 
 void insertLG(Player* p) {
-    if (!p || p->inFinalList) return;
+    if (p == NULL || p->inFinalList == 1) return;
     p->inFinalList = 1;
 
     if (!LG || p->score > LG->score) {
@@ -85,6 +92,7 @@ void insertLG(Player* p) {
 }
 
 /* Scoring functions */
+
 int sumDigits(int x) {
     int s = 0;
     while (x > 0) {
@@ -131,42 +139,53 @@ int scorePart2() {
 }
 
 /* Player selection */
+
 Player* selectPlayer(Queue* F1, Queue* F, Queue* F3) {
     if (F1->size > 0) return dequeue(F1);
-    if (F->size > 0) return dequeue(F);
+    if (F->size  > 0) return dequeue(F);
     if (F3->size > 0) return dequeue(F3);
     return NULL;
 }
 
-/* Select opponent that is not the same as winner */
-Player* selectOpponent(Queue* F1, Queue* F, Queue* F3, Player* winner) {
-    if (!winner) return selectPlayer(F1, F, F3);
 
+Player* selectOpponent(Queue* F1, Queue* F, Queue* F3, Player* winner) {
     Player* candidate = NULL;
 
     if (F1->size > 0) {
         candidate = dequeue(F1);
-        if (candidate == winner) { enqueue(F1, candidate); candidate = NULL; }
+        if (candidate == winner) {
+            enqueue(F1, candidate);
+            candidate = NULL;
+        }
     }
-    if (!candidate && F->size > 0) {
+    if (candidate == NULL && F->size > 0) {
         candidate = dequeue(F);
-        if (candidate == winner) { enqueue(F, candidate); candidate = NULL; }
+        if (candidate == winner) {
+            enqueue(F, candidate);
+            candidate = NULL;
+        }
     }
-    if (!candidate && F3->size > 0) {
+    if (candidate == NULL && F3->size > 0) {
         candidate = dequeue(F3);
-        if (candidate == winner) { enqueue(F3, candidate); candidate = NULL; }
+        if (candidate == winner) {
+            enqueue(F3, candidate);
+            candidate = NULL;
+        }
     }
-
     return candidate;
 }
 
 /* State display */
+
 void showQueue(const char* name, Queue* q) {
     printf("\n%s (size=%d):\n", name, q->size);
-    if (!q->head) { printf("  [empty]\n"); return; }
+    if (q->head == NULL) {
+        printf("  [empty]\n");
+        return;
+    }
     Player* p = q->head;
     while (p) {
-        printf("  %s (Score: %d, W: %d, L: %d, CW: %d, CL: %d)\n",
+        printf("  %s (Score: %d, Wins: %d, Loses: %d, Consecutive Wins: %d, Consecutive Losses: %d)\n",
                p->name, p->score, p->wins, p->losses, p->consecutiveWins, p->consecutiveLosses);
         p = p->next;
     }
@@ -174,10 +193,13 @@ void showQueue(const char* name, Queue* q) {
 
 void showList(const char* name, Player* list) {
     printf("\n%s:\n", name);
-    if (!list) { printf("  [empty]\n"); return; }
+    if (!list) {
+        printf("  [empty]\n");
+        return;
+    }
     Player* p = list;
     while (p) {
-        printf("  %s (Score: %d, W: %d, L: %d, CW: %d, CL: %d)\n",
+        printf("  %s (Score: %d, Wins: %d, Loses: %d, Consecutive Wins: %d, Consecutive Losses: %d)\n",
                p->name, p->score, p->wins, p->losses, p->consecutiveWins, p->consecutiveLosses);
         p = p->next;
     }
@@ -193,14 +215,16 @@ void showState(Queue* F, Queue* F1, Queue* F3) {
 }
 
 /* Play a round */
+
 Player* playRound(Player* p1, Player* p2,
                   Queue* F, Queue* F1, Queue* F3,
                   int part, int roundNumber) {
 
     int s1 = 0, s2 = 0, turns = 0;
+    time_t start = time(NULL);
 
     printf("\n==============================\n");
-    printf("ROUND %d - Part %d\n", roundNumber, part);
+    printf("ROUND %d - Part %d | Start: %s", roundNumber, part, ctime(&start));
     printf("%s vs %s\n", p1->name, p2->name);
     printf("------------------------------\n");
 
@@ -268,42 +292,51 @@ Player* playRound(Player* p1, Player* p2,
             insertLG(win);
     }
 
+    time_t end = time(NULL);
+    printf("End of Round: %s", ctime(&end));
+
     showState(F, F1, F3);
+
     return win;
 }
 
 /* Run the game */
+
 void runGame(Queue* F, Queue* F1, Queue* F3) {
     int n = F->size;
     Player* winner = NULL;
     int roundNumber = 1;
 
-    while (F->size + F1->size + F3->size >= 2) {
+    /* Part 1 */
+    for (int i = 0; i < 3 * n && F->size + F1->size + F3->size >= 2; i++) {
         if (!winner)
             winner = selectPlayer(F1, F, F3);
 
         Player* c = selectOpponent(F1, F, F3, winner);
-        if (!c) break; // stop if no opponent
+        if (!c) break;
 
         winner = playRound(winner, c, F, F1, F3, 1, roundNumber++);
     }
 
-    while (F->size + F1->size + F3->size >= 2) {
+    /* Part 2 */
+    for (int i = 0; i < 2 * n && F->size + F1->size + F3->size >= 2; i++) {
         if (!winner)
             winner = selectPlayer(F1, F, F3);
 
         Player* c = selectOpponent(F1, F, F3, winner);
-        if (!c) break; // stop if no opponent
+        if (!c) break;
 
         winner = playRound(winner, c, F, F1, F3, 2, roundNumber++);
     }
 
+    /* Place remaining players in final lists */
     while (F1->size) insertLG(dequeue(F1));
     while (F->size)  insertLP(dequeue(F));
     while (F3->size) insertLP(dequeue(F3));
 }
 
 /* Show top 3 winners */
+
 void showTop3() {
     printf("\nTOP 3 WINNERS\n");
     Player* p = LG;
@@ -316,7 +349,29 @@ void showTop3() {
     }
 }
 
+/* Show players with 0 wins and summary */
+
+void showSummary(Player* players[], int n) {
+    printf("\nPLAYER WIN/LOSS SUMMARY\n");
+
+    printf("Players with 0 wins:\n");
+    for (int i = 0; i < n; i++)
+        if (players[i]->wins == 0)
+            printf("  %s\n", players[i]->name);
+
+    printf("\nPlayers with 1,2,3 wins:\n");
+    for (int i = 0; i < n; i++)
+        if (players[i]->wins >=1 && players[i]->wins <=3)
+            printf("  %s - Wins: %d\n", players[i]->name, players[i]->wins);
+
+    printf("\nPlayers with 1,2,3 losses:\n");
+    for (int i = 0; i < n; i++)
+        if (players[i]->losses >=1 && players[i]->losses <=3)
+            printf("  %s - Losses: %d\n", players[i]->name, players[i]->losses);
+}
+
 /* Main function */
+
 int main() {
     srand(time(NULL));
 
@@ -326,20 +381,27 @@ int main() {
     initQueue(&F3);
 
     int numPlayers;
-    printf("Enter number of players: ");
+    printf("Enter number of players ( >= 2 ): ");
     scanf("%d", &numPlayers);
 
-    for (int i = 1; i <= numPlayers; i++) {
+    Player** allPlayers = (Player**)malloc(numPlayers * sizeof(Player*));
+    if (allPlayers == NULL) {
+    printf("Memory allocation failed!\n");
+    return 1;
+}
+ // keep track for summary
+
+    for (int i = 0; i < numPlayers; i++) {
         char name[30];
         int age;
 
-        printf("Enter name of player %d: ", i);
+        printf("Enter name of player %d: ", i+1);
         scanf("%s", name);
-        printf("Enter age of player %d: ", i);
+        printf("Enter age of player %d: ", i+1);
         scanf("%d", &age);
 
         Player* p = (Player*)malloc(sizeof(Player));
-        p->id = i;
+        p->id = i+1;
         strcpy(p->name, name);
         p->age = age;
         p->score = 0;
@@ -349,12 +411,14 @@ int main() {
         p->next = NULL;
 
         enqueue(&F, p);
+        allPlayers[i] = p;
     }
 
     runGame(&F, &F1, &F3);
     showTop3();
+    showSummary(allPlayers, numPlayers);
 
-    /* free all remaining players in LG and LP */
+    /* free all players */
     Player* tmp;
     while (LG) { tmp = LG; LG = LG->next; free(tmp); }
     while (LP) { tmp = LP; LP = LP->next; free(tmp); }
