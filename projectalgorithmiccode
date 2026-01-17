@@ -1,0 +1,357 @@
+// types 
+
+Type
+    Player = Record
+        id : Integer;
+        name : String;
+        age : Integer;
+        score : Integer;
+        wins : Integer;
+        losses : Integer;
+        consecutiveWins : Integer;
+        consecutiveLosses : Integer;
+        inFinalList : Integer;       // 0 = playing, 1 = in LG or LP
+        next : ^Player;
+    EndRecord;
+
+    Queue = Record
+        head : ^Player;
+        tail : ^Player;
+        size : Integer;
+    EndRecord;
+
+Var
+    LG, LP : ^Player;  // winners list and losers list
+
+
+// queue operations 
+
+Procedure InitQueue(Var Q : Queue);
+Begin
+    Q.head ← Nil;
+    Q.tail ← Nil;
+    Q.size ← 0;
+End;
+
+Procedure Enqueue(Var Q : Queue; P : ^Player);
+Begin
+    If P = Nil Then Return; EndIf;
+    P^.next ← Nil;
+    If Q.tail = Nil Then
+        Q.head ← P;
+        Q.tail ← P;
+    Else
+        Q.tail^.next ← P;
+        Q.tail ← P;
+    EndIf;
+    Q.size ← Q.size + 1;
+End;
+
+Function Dequeue(Var Q : Queue) : ^Player;
+Var
+    P : ^Player;
+Begin
+    If Q.head = Nil Then
+        Return Nil;
+    EndIf;
+
+    P ← Q.head;
+    Q.head ← Q.head^.next;
+    If Q.head = Nil Then
+        Q.tail ← Nil;
+    EndIf;
+    P^.next ← Nil;
+    Q.size ← Q.size - 1;
+
+    Return P;
+End;
+
+
+// list operations  
+
+Procedure InsertLP(P : ^Player);
+Begin
+    If (P = Nil) Or (P^.inFinalList = 1) Then Return; EndIf;
+    P^.inFinalList ← 1;
+    P^.next ← LP;
+    LP ← P;
+End;
+
+Procedure InsertLG(P : ^Player);
+Var
+    Cur : ^Player;
+Begin
+    If (P = Nil) Or (P^.inFinalList = 1) Then Return; EndIf;
+    P^.inFinalList ← 1;
+
+    If ((LG = Nil) Or (P^.score > LG^.score)) Then
+        P^.next ← LG;
+        LG ← P;
+        Return;
+    EndIf;
+
+    Cur ← LG;
+    While ((Cur^.next ≠ Nil) And (Cur^.next^.score ≥ P^.score)) Do
+        Cur ← Cur^.next;
+    Done;
+
+    P^.next ← Cur^.next;
+    Cur^.next ← P;
+End;
+
+
+// utilities 
+
+Function SumDigits(X : Integer) : Integer;
+Var
+    S : Integer;
+Begin
+    S ← 0;
+    While (X > 0) Do
+        S ← S + (X mod 10);
+        X ← X div 10;
+    Done;
+    Return S;
+End;
+
+
+// scoring part 1 
+
+Function ScorePart1() : Integer;
+Var
+    V : Integer;
+Begin
+    V ← Random(1000000);
+    If SumDigits(V) mod 5 = 0 Then
+        Return 1;
+    Else
+        Return 0;
+    EndIf;
+End;
+
+
+// scoring part 2 
+
+Function GCD(A, B : Integer) : Integer;
+Var
+    T : Integer;
+Begin
+    While (B > 0) Do
+        T ← B;
+        B ← A mod B;
+        A ← T;
+    Done;
+    Return A;
+End;
+
+Function ContainsDigit(N, D : Integer) : Boolean;
+Begin
+    While (N > 0) Do
+        If (N mod 10 = D) Then
+            Return True;
+        EndIf;
+        N ← N div 10;
+    Done;
+    Return False;
+End;
+
+Function ScorePart2() : Integer;
+Var
+    A, B, G, D : Integer;
+Begin
+    A ← Random(1000) + 1;
+    B ← Random(1000) + 1;
+    G ← GCD(A, B);
+
+    While (G > 0) Do
+        D ← G mod 10;
+        If ((ContainsDigit(A, D)) Or (ContainsDigit(B, D))) Then
+            Return 1;
+        EndIf;
+        G ← G div 10;
+    Done;
+
+    Return 0;
+End;
+
+
+// player selection 
+
+Function SelectPlayer(Var F1, F, F3 : Queue) : ^Player;
+Begin
+    If (F1.size > 0) Then Return Dequeue(F1); EndIf;
+    If (F.size  > 0) Then Return Dequeue(F);  EndIf;
+    If (F3.size > 0) Then Return Dequeue(F3); EndIf;
+    Return Nil;
+End;
+
+Function SelectOpponent(Var F1, F, F3 : Queue; Winner : ^Player) : ^Player;
+Var
+    Candidate : ^Player;
+Begin
+    Candidate ← Nil;
+
+    If (F1.size > 0) Then
+        Candidate ← Dequeue(F1);
+        If (Candidate = Winner) Then
+            Enqueue(F1, Candidate);
+            Candidate ← Nil;
+        EndIf;
+    EndIf;
+
+    If (Candidate = Nil) And (F.size > 0) Then
+        Candidate ← Dequeue(F);
+        If (Candidate = Winner) Then
+            Enqueue(F, Candidate);
+            Candidate ← Nil;
+        EndIf;
+    EndIf;
+
+    If (Candidate = Nil) And (F3.size > 0) Then
+        Candidate ← Dequeue(F3);
+        If (Candidate = Winner) Then
+            Enqueue(F3, Candidate);
+            Candidate ← Nil;
+        EndIf;
+    EndIf;
+
+    Return Candidate;
+End;
+
+
+// round 
+
+Function PlayRound(P1, P2 : ^Player;
+                   Var F, F1, F3 : Queue;
+                   Part : Integer) : ^Player;
+Var
+    S1, S2, Turns : Integer;
+    Win, Lose : ^Player;
+Begin
+    S1 ← 0; S2 ← 0; Turns ← 0;
+
+    If (Part = 1) Then
+        While ((Abs(S1 - S2) < 3) And (Turns < 12)) Do
+            S1 ← S1 + ScorePart1();
+            S2 ← S2 + ScorePart1();
+            Turns ← Turns + 1;
+        Done;
+    Else
+        While ((Abs(S1 - S2) < 3) And (Turns < 16)) Do
+            S1 ← S1 + ScorePart2();
+            S2 ← S2 + ScorePart2();
+            Turns ← Turns + 1;
+        Done;
+    EndIf;
+
+    P1^.score ← P1^.score + S1;
+    P2^.score ← P2^.score + S2;
+
+    If (S1 = S2) Then
+        Enqueue(F, P1);
+        Enqueue(F, P2);
+        Return Nil;
+    EndIf;
+
+    If (S1 > S2) Then
+        Win ← P1;
+        Lose ← P2;
+    Else
+        Win ← P2;
+        Lose ← P1;
+    EndIf;
+
+    Win^.wins ← Win^.wins + 1;
+    Lose^.losses ← Lose^.losses + 1;
+    Win^.consecutiveWins ← Win^.consecutiveWins + 1;
+    Lose^.consecutiveLosses ← Lose^.consecutiveLosses + 1;
+    Win^.consecutiveLosses ← 0;
+    Lose^.consecutiveWins ← 0;
+
+    If (Part = 1) Then
+        If (Win^.consecutiveWins = 3) Then Enqueue(F1, Win); EndIf;
+
+        If (Lose^.losses = 5) Then
+            InsertLP(Lose);
+        ElseIf (Lose^.consecutiveLosses = 3) Then
+            Enqueue(F3, Lose);
+        Else
+            Enqueue(F, Lose);
+        EndIf;
+
+        If (Win^.wins = 5) Then InsertLG(Win); EndIf;
+    Else
+        If (Lose^.losses ≥ 2) Then
+            InsertLP(Lose);
+        Else
+            Enqueue(F3, Lose);
+        EndIf;
+
+        If (Win^.consecutiveWins ≥ 2) Then InsertLG(Win); EndIf;
+    EndIf;
+
+    Return Win;
+End;
+
+
+// controller 
+
+Procedure RunGame(Var F, F1, F3 : Queue);
+Var
+    N, I : Integer;
+    Winner, Challenger : ^Player;
+Begin
+    N ← F.size;
+    Winner ← Nil;
+
+    For I ← 1 To 3 * N Do
+        If (F.size + F1.size + F3.size < 2) Then Break; EndIf;
+
+        If (Winner = Nil) Then
+            Winner ← SelectPlayer(F1, F, F3);
+        EndIf;
+
+        Challenger ← SelectOpponent(F1, F, F3, Winner);
+        If (Challenger = Nil) Then Break; EndIf;
+
+        Winner ← PlayRound(Winner, Challenger, F, F1, F3, 1);
+    Done;
+
+    For I ← 1 To 2 * N Do
+        If (F.size + F1.size + F3.size < 2) Then Break; EndIf;
+
+        If (Winner = Nil) Then
+            Winner ← SelectPlayer(F1, F, F3);
+        EndIf;
+
+        Challenger ← SelectOpponent(F1, F, F3, Winner);
+        If (Challenger = Nil) Then Break; EndIf;
+
+        Winner ← PlayRound(Winner, Challenger, F, F1, F3, 2);
+    Done;
+
+    While (F1.size > 0) Do InsertLG(Dequeue(F1)); Done;
+    While (F.size  > 0) Do InsertLP(Dequeue(F));  Done;
+    While (F3.size > 0) Do InsertLP(Dequeue(F3)); Done;
+End;
+
+
+// main algorithm 
+
+Algorithm GameWithQueues;
+Var
+    F, F1, F3 : Queue;
+Begin
+    InitQueue(F);
+    InitQueue(F1);
+    InitQueue(F3);
+
+    // Example players (can be replaced with input method)
+    Enqueue(F, New Player(1,"Alice",20,0,0,0,0,0,0,Nil));
+    Enqueue(F, New Player(2,"Bob",21,0,0,0,0,0,0,Nil));
+    Enqueue(F, New Player(3,"Charlie",22,0,0,0,0,0,0,Nil));
+    Enqueue(F, New Player(4,"Diana",23,0,0,0,0,0,0,Nil));
+    Enqueue(F, New Player(5,"Eve",24,0,0,0,0,0,0,Nil));
+
+    RunGame(F, F1, F3);
+End.
